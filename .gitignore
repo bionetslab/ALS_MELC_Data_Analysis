@@ -3,3 +3,5 @@
 *.tif
 *pdf
 *.ipynb
+*.npy
+*.pickle
