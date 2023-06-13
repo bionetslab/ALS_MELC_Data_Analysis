@@ -251,7 +251,7 @@ class MELC_Segmentation:
             combined_membranes = reconstructed_membranes + estimated_membranes
         else:
             combined_membranes = estimated_membranes
-        return nuclei_labels, combined_membranes
+        return nuclei_labels, combined_membranes, self.nucleus_label_where, self.membrane_label_where
 
     
 """

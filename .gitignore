@@ -1,7 +1,6 @@
 ./data/
 *.png
 *.tif
-*pdf
-*.ipynb
+*.pdf
 *.npy
 *.pickle
