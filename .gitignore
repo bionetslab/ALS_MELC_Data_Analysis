@@ -3,4 +3,4 @@
 *.tif
 *.pdf
 *.npy
-*.pickle
+*.pkl
