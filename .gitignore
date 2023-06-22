@@ -5,3 +5,6 @@
 *.npy
 *.pkl
 *.pickle
+*.rds
+*.json
+*.ipynb_checkpoints
