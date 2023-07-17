@@ -47,8 +47,9 @@ calculate_DA_clusters <- function(controls, patients, save_path = "./", json_sav
 
     ids_controls <- controls[,ncol(controls)]
     ids_patients <- patients[,ncol(patients)]
-	
-	for(sample_id in ids_patients[!duplicated(ids_patients)]){
+    
+
+    for(sample_id in ids_patients[!duplicated(ids_patients)]){
         print(sample_id)
         df_patient <- patients[patients$label == sample_id,]
         df_new_tmp <- rbind(controls, df_patient)
