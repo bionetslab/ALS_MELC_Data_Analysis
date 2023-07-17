@@ -20,13 +20,14 @@ class ExpressionAnalyzer:
     def run(self, segment="nuclei", profile={'CD11b-PE': 0, 'CD16-PE': 1, 'CD45RA-PE': 1, 'HLA-DR-PE': 0}):
         self.segment_all()
         self.get_expression_of_all_samples(segment)
-        self.binarize_and_normalize_expression()
-        plot_df = self.count_condition_cells(profile)
-        self.plot_condition_df(plot_df, self.title_from_dict(profile), segment)
-
+        if profile is not None:
+            self.binarize_and_normalize_expression()
+            plot_df = self.count_condition_cells(profile)
+            self.plot_condition_df(plot_df, self.title_from_dict(profile), segment)
+        
         
     def segment_all(self):
-        for i, fov in enumerate(tqdm(self.seg.fields_of_view, desc="Segmenting")):
+        for fov in tqdm(self.seg.fields_of_view, desc="Segmenting"):
             nuclei_path = os.path.join(self.segmentation_results_dir, f"{fov}_nuclei.npy")
             if not os.path.exists(nuclei_path):
                 self.seg.field_of_view = fov

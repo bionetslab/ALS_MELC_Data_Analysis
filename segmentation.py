@@ -19,7 +19,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 class MELC_Segmentation:
     def __init__(self, data_path, membrane_marker="cd45") -> None:
-        self.fields_of_view = sorted(os.listdir(data_path))
+        self.fields_of_view = [f for f in sorted(os.listdir(data_path)) if not ("ipynb" in f or ".txt" in f)]
         
         self._field_of_view = None
         self._membrane_marker = membrane_marker
@@ -46,7 +46,7 @@ class MELC_Segmentation:
             print(field_of_view, "is not valid")
         
     
-    def get_membrane_marker(self):
+    def get_marker(self):
         fov_dir = self.get_fov_dir()
         membrane_marker_path = self._get_channel_path(fov_dir, f"{self._membrane_marker}-")
         return cv2.imread(membrane_marker_path, cv2.IMREAD_GRAYSCALE)
@@ -229,7 +229,7 @@ class MELC_Segmentation:
         nuclei_labels, nuclei_centers = self.segment(prop_iodide)
         
         if self._membrane_marker is not None:
-            membrane_marker = self.get_membrane_marker()
+            membrane_marker = self.get_marker()
             membrane_labels, _ = self.segment(membrane_marker)
         
             start = time.time()
