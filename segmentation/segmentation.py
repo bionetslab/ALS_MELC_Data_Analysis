@@ -18,11 +18,14 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 
 class MELC_Segmentation:
-    def __init__(self, data_path, membrane_marker="cd45") -> None:
+    def __init__(self, data_path, membrane_markers=["cd45"]) -> None:
+        
+        if not isinstance(membrane_markers, list):
+            membrane_markers = [membrane_markers]
         self.fields_of_view = [f for f in sorted(os.listdir(data_path)) if not ("ipynb" in f or ".txt" in f)]
         
         self._field_of_view = None
-        self._membrane_marker = membrane_marker
+        self._membrane_markers = membrane_markers
         self._model = None
         self._kdforest = dict()        
         self._data_path = data_path
@@ -46,9 +49,9 @@ class MELC_Segmentation:
             print(field_of_view, "is not valid")
         
     
-    def get_marker(self):
+    def get_marker(self, marker):
         fov_dir = self.get_fov_dir()
-        membrane_marker_path = self._get_channel_path(fov_dir, f"{self._membrane_marker}-")
+        membrane_marker_path = self._get_channel_path(fov_dir, f"{marker}-")
         return cv2.imread(membrane_marker_path, cv2.IMREAD_GRAYSCALE)
 
     
@@ -228,14 +231,17 @@ class MELC_Segmentation:
         prop_iodide = self.get_prop_iodide()
         nuclei_labels, nuclei_centers = self.segment(prop_iodide)
         
-        if self._membrane_marker is not None:
-            membrane_marker = self.get_marker()
-            membrane_labels, _ = self.segment(membrane_marker)
-        
-            start = time.time()
-            reconstructed_membranes, nuclei_centers_without_membranes, radii_ratio, nucleus_radii_to_circle = self.existing_membranes_as_nuclei_NN(membrane_labels, nuclei_labels, nuclei_centers)
-            #print("reconstruction took", time.time()-start)
-      
+        if self._membrane_markers is not None:
+            combined_membrane_labels = None
+            for marker in self._membrane_markers:
+                membrane_marker = self.get_marker(marker)
+                membrane_labels, _ = self.segment(membrane_marker)
+                if combined_membrane_labels is None:
+                    combined_membrane_labels = membrane_labels
+                else:
+                    combined_membrane_labels = np.where(combined_membrane_labels == 0, membrane_labels, combined_membrane_labels)
+            
+            reconstructed_membranes, nuclei_centers_without_membranes, radii_ratio, nucleus_radii_to_circle = self.existing_membranes_as_nuclei_NN(combined_membrane_labels, nuclei_labels, nuclei_centers)
         
         else: 
             if radii_ratio is None:
