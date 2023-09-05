@@ -5,22 +5,46 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+import matplotlib
 import sys
 sys.path.append("/data_slow/je30bery/spatial_proteomics/segmentation")
 from segmentation import MELC_Segmentation
 from tqdm import tqdm
 
+
+
 class ExpressionAnalyzer:
-    def __init__(self, data_path="/data_slow/je30bery/data/ALS", segmentation_results_dir="/data_slow/je30bery/spatial_proteomics/segmentation_results/", membrane_marker="cd45"):
+    def __init__(self, data_path, segmentation_results_dir_path, base_path, membrane_markers=["cd45"], save_plots=False):
+        """
+        Initialize the ExpressionAnalyzer class.
+
+        Args:
+            data_path (str): The path to the data directory.
+            segmentation_results_dir_path (str): The path to the segmentation results directory.
+            base_path (str): The base path.
+            membrane_markers (list, optional): A list of membrane marker names.
+            save_plots (bool, optional): Whether to save generated plots.
+
+        """
         self.data_path = data_path
-        self.membrane_marker = membrane_marker
-        self.seg = MELC_Segmentation(data_path, membrane_marker=membrane_marker)
+        self.seg = MELC_Segmentation(data_path, membrane_markers=membrane_markers)
         self.expression_data = None
-        self.segmentation_results_dir = segmentation_results_dir
+        self.segmentation_results_dir = segmentation_results_dir_path
+        self.base_path = base_path
+        self.save_plots = save_plots
+        self.markers = dict()
+
                  
 
     def run(self, segment="nuclei", profile={'CD11b-PE': 0, 'CD16-PE': 1, 'CD45RA-PE': 1, 'HLA-DR-PE': 0}):
+        """
+        Run the analysis for expression data.
+
+        Args:
+            segment (str, optional): The segment type to analyze (e.g., "nuclei").
+            profile (dict, optional): A dictionary defining the expression profile.
+
+        """
         self.segment_all()
         self.get_expression_of_all_samples(segment)
         if profile is not None:
@@ -30,6 +54,10 @@ class ExpressionAnalyzer:
         
         
     def segment_all(self):
+        """
+        Segment nuclei and cells for all fields of view.
+
+        """
         for fov in tqdm(self.seg.fields_of_view, desc="Segmenting"):
             nuclei_path = os.path.join(self.segmentation_results_dir, f"{fov}_nuclei.npy")
             if not os.path.exists(nuclei_path):
@@ -47,6 +75,17 @@ class ExpressionAnalyzer:
 
                     
     def get_expression_per_marker_and_sample(self, adaptive, where_dict):
+        """
+        Calculate expression for markers and samples.
+
+        Args:
+            adaptive (numpy.ndarray): The adaptive thresholded image.
+            where_dict (dict): Dictionary mapping labels to coordinates.
+
+        Returns:
+            dict: Dictionary of expression values.
+
+        """
         expression = np.zeros_like(adaptive)
         expression_dict = dict()
         for n in where_dict:
@@ -60,23 +99,34 @@ class ExpressionAnalyzer:
 
     
     def get_expression_of_all_samples(self, segment):
+        """
+        Retrieve expression data for all samples.
+
+        Args:
+            segment (str): The segment type to analyze (e.g., "nuclei").
+
+        """
         result_dfs = list()
 
         for fov in tqdm(self.seg.fields_of_view, desc="Calculating expression"):
-            expression_result_path = f"/data_slow/je30bery/spatial_proteomics/marker_expression_{segment}_results/{fov}.pkl"
+            expression_result_path = os.path.join(self.base_path, f"marker_expression_{segment}_results/{fov}.pkl")
             segmentation_result_path = os.path.join(self.segmentation_results_dir, f"{fov}_{segment}.pickle")
-                                                    
+            
+            self.seg.field_of_view = fov
+
+            markers = {
+                m.split("_")[1]: os.path.join(self.seg.get_fov_dir(), m)
+                for m in sorted(os.listdir(self.seg.get_fov_dir()))
+                if m.endswith(".tif") and "phase" not in m
+            }
+            self.markers[fov] = markers
+            del markers['Propidium iodide']                                        
+            
             if not os.path.exists(expression_result_path):
                 with open(segmentation_result_path, 'rb') as handle:
                     where_dict = pickle.load(handle)
 
-                self.seg.field_of_view = fov
-                markers = {
-                    m.split("_")[1]: os.path.join(self.seg.get_fov_dir(), m)
-                    for m in sorted(os.listdir(self.seg.get_fov_dir()))
-                    if m.endswith(".tif") and "phase" not in m
-                }
-                del markers['Propidium iodide']
+                
                 rows = list(where_dict.keys())
                 cols = list(markers.keys())
 
@@ -105,12 +155,26 @@ class ExpressionAnalyzer:
         self.expression_data = pd.concat(result_dfs)
 
     def binarize_and_normalize_expression(self):
+        """
+        Binarize and normalize expression data.
+
+        """
         control_mean = self.expression_data[self.expression_data["Group"] == "Control"].iloc[:, :-2].mean(axis=0)
         control_std = self.expression_data[self.expression_data["Group"] == "Control"].iloc[:, :-2].std(axis=0)
         normalized = (self.expression_data.iloc[:, :-2] - control_mean) / control_std
         self.expression_data.iloc[:, :-2] = normalized > 0
 
     def count_condition_cells(self, profile):
+        """
+        Count cells based on the specified profile.
+
+        Args:
+            profile (dict): A dictionary defining the expression profile.
+
+        Returns:
+            pd.DataFrame: DataFrame containing cell counts.
+
+        """
         plot_df = pd.DataFrame(columns=['Counts', "Sample", "Group"])
         condition_df = self.expression_data
         for p in profile:
@@ -127,6 +191,15 @@ class ExpressionAnalyzer:
         return plot_df
 
     def plot_condition_df(self, plot_df, title, segment):
+        """
+        Plot the condition DataFrame.
+
+        Args:
+            plot_df (pd.DataFrame): The DataFrame to plot.
+            title (str): The title for the plot.
+            segment (str): The segment type being analyzed.
+
+        """
         plt.clf()
         sns.set_theme()
         patients = len(plot_df[plot_df["Group"] == "Case"])
@@ -138,13 +211,23 @@ class ExpressionAnalyzer:
         plt.suptitle(f"Expression in {segment.upper()[0]}{segment[1:]}")
         plt.tight_layout()
         plt.legend(loc="center")
-        
-        filename = title+ "_" + segment + ".pdf"
-        print("Saving at", filename)
-        plt.savefig(filename)
+        if self.save_plots:
+            filename = title+ "_" + segment + ".pdf"
+            print("Saving at", filename)
+            plt.savefig(filename)
 
     @staticmethod
     def title_from_dict(profile):
+        """
+        Generate a title from a profile dictionary.
+
+        Args:
+            profile (dict): A dictionary defining the expression profile.
+
+        Returns:
+            str: The generated title.
+
+        """
         title = ""
         for p in profile:
             title += f"{p}:{profile[p]} "

@@ -1,4 +1,0 @@
-name: melc_pipeline
-channels:
-  - defaults
-prefix: /data/je30bery/.conda/envs/melc_pipeline

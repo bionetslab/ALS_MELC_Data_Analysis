@@ -1,3 +1,6 @@
 {
-    "ALS": "/data_slow/je30bery/data/ALS/"
+    "ALS": "/data_slow/je30bery/data/ALS/",
+    "segmentation_results": "/data_slow/je30bery/spatial_proteomics/segmentation_results/",
+    "base_path": "/data_slow/je30bery/spatial_proteomics/",
+    "segmentation": "/data_slow/je30bery/spatial_proteomics/segmentation"
 }
