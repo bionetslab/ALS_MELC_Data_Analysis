@@ -1,3 +1,12 @@
+## MELC DATA ANALYSIS
+#### Anna Möller anna.moeller@fau.de
+
+How to use:
+1. To segment and analyze the expression of a profile, activate a conda environment using the environment.yml (instructions below).
+2. Create direcotires where you want to have the segmentation and expression results and modify the paths in the config.json file (most importantly the datapath).
+3. Use /marker_expression/expression_schubert_analysis.ipynb to segment the images and analyze the expression of different profiles.
+
+
 To use this project, install conda and create an environment from the respective file.
 
 **Step 1: Install Conda**
@@ -46,4 +55,5 @@ To use this project, install conda and create an environment from the respective
 
    This will display a list of packages installed in the "melc_segmentation" environment.
 
-That's it! You've successfully installed Conda, created a Conda environment named "melc_segmentation," and installed all the required packages from the environment.yml file. You can now work within this environment for your specific project or tasks.
+That's it! You've successfully installed Conda, created a Conda environment named "melc_segmentation," and installed all the required packages from the environment.yml file. You can now work within this environment for your specific project or tasks. 
+
