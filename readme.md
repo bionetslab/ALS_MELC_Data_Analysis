@@ -2,7 +2,7 @@
 #### Anna Möller anna.moeller@fau.de
 
 How to use:
-1. To segment and analyze the expression of a profile, activate a conda environment using environment.yml (instructions below).
+1. To segment and analyze the expression of a profile, activate a conda environment using the environment.yml (instructions below).
 2. Create direcotires where you want to have the segmentation and expression results and modify the paths in the config.json file (most importantly the datapath).
 3. Use /marker_expression/expression_schubert_analysis.ipynb to segment the images and analyze the expression of different profiles.
 
