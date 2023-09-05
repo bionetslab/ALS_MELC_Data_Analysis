@@ -106,7 +106,7 @@ class MELC_Segmentation:
         #print("estimation took", time.time()-start)
         
         # combine membranes
-        if self._membrane_marker is not None:
+        if self._membrane_markers is not None:
             combined_membranes = reconstructed_membranes + estimated_membranes
         else:
             combined_membranes = estimated_membranes
