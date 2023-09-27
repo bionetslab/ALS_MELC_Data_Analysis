@@ -135,13 +135,20 @@ class MELC_Segmentation:
     
     def get_prop_iodide(self):
         fov_dir = self.get_fov_dir()
-        bleach_dir = self._get_bleach_dir(fov_dir)
-        prop_iodide_path = self._get_channel_path(bleach_dir, "propidium")
+        if "ctcl" in self._data_path:
+            prop_iodide_path = self._get_channel_path(fov_dir, "propidium")
+        else:
+            bleach_dir = self._get_bleach_dir(fov_dir)
+            prop_iodide_path = self._get_channel_path(bleach_dir, "propidium")
+        
         return cv2.imread(prop_iodide_path, cv2.IMREAD_GRAYSCALE)
     
-    
+
     def get_fov_dir(self):
-        fov_dir = os.path.join(self._data_path, self._field_of_view)
+        if "ctcl" in self._data_path:
+            fov_dir = os.path.join(self._data_path, self._field_of_view, "source")
+        else:
+            fov_dir = os.path.join(self._data_path, self._field_of_view)
         assert os.path.isdir(fov_dir), f"Field of view {self._field_of_view} does not exist!"
         return fov_dir
     
@@ -153,7 +160,9 @@ class MELC_Segmentation:
     
     
     def _get_channel_path(self, img_dir, channel):
-        channels = [c for c in os.listdir(img_dir) if channel.lower() in c.lower()]
+        channels = [c for c in os.listdir(img_dir) if channel.lower() in c.lower() and c.startswith("o") and c.endswith("png")]
+        print(img_dir)
+        print(channels)
         assert len(channels) == 1, f"Path for field of view {img_dir} does not contain exactly one image of the desired channel!"
         channel_path = os.path.join(img_dir, channels[0])
         return channel_path
