@@ -1,6 +1,5 @@
 {
-    "ALS": "/data_slow/je30bery/data/ALS/",
-    "segmentation_results": "/data_slow/je30bery/spatial_proteomics/segmentation_results/",
-    "base_path": "/data_slow/je30bery/spatial_proteomics/",
+    "CTCL": "/data/bionets/datasets/melc/ctcl/processed",
+    "segmentation_results": "/data/bionets/datasets/melc/ctcl/segmented",
     "segmentation": "/data_slow/je30bery/spatial_proteomics/segmentation"
 }

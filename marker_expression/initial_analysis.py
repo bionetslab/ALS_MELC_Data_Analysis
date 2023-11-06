@@ -14,35 +14,36 @@ from tqdm import tqdm
 
 
 class ExpressionAnalyzer:
-    def __init__(self, data_path, segmentation_results_dir_path, base_path, membrane_markers=["cd45"], save_plots=False):
+    def __init__(self, data_path, segmentation_results_dir_path, radii_ratio=2, membrane_markers=None, save_plots=False):
         """
         Initialize the ExpressionAnalyzer class.
 
         Args:
             data_path (str): The path to the data directory.
             segmentation_results_dir_path (str): The path to the segmentation results directory.
-            base_path (str): The base path.
             membrane_markers (list, optional): A list of membrane marker names.
             save_plots (bool, optional): Whether to save generated plots.
 
         """
         self.data_path = data_path
         self.seg = MELC_Segmentation(data_path, membrane_markers=membrane_markers)
+        self.radii_ratio = radii_ratio
         self.expression_data = None
         self.segmentation_results_dir = segmentation_results_dir_path
-        self.base_path = base_path
         self.save_plots = save_plots
         self.markers = dict()
 
                  
 
-    def run(self, segment="nuclei", profile={'CD11b-PE': 0, 'CD16-PE': 1, 'CD45RA-PE': 1, 'HLA-DR-PE': 0}):
+    def run(self, segment="nuclei", profile=None):
         """
         Run the analysis for expression data.
 
         Args:
             segment (str, optional): The segment type to analyze (e.g., "nuclei").
             profile (dict, optional): A dictionary defining the expression profile.
+            
+            {'CD11b-PE': 0, 'CD16-PE': 1, 'CD45RA-PE': 1, 'HLA-DR-PE': 0}
 
         """
         self.segment_all()
@@ -62,7 +63,7 @@ class ExpressionAnalyzer:
             nuclei_path = os.path.join(self.segmentation_results_dir, f"{fov}_nuclei.npy")
             if not os.path.exists(nuclei_path):
                 self.seg.field_of_view = fov
-                nuc, mem, _, _ = self.seg.run(fov)
+                nuc, mem, _, _ = self.seg.run(fov, self.radii_ratio)
                 np.save(nuclei_path, nuc.astype(int))
                 np.save(os.path.join(self.segmentation_results_dir, f"{fov}_cells.npy"), mem.astype(int))
 
@@ -71,9 +72,9 @@ class ExpressionAnalyzer:
                 with open(nuclei_pickle_path, 'wb') as handle:
                     pickle.dump(self.seg.nucleus_label_where[fov], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 with open(os.path.join(self.segmentation_results_dir, f"{fov}_cell.pickle"), 'wb') as handle:
-                    pickle.dump(self.seg.cell_label_where[fov], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    pickle.dump(self.seg.membrane_label_where[fov], handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-                    
+    
     def get_expression_per_marker_and_sample(self, adaptive, where_dict):
         """
         Calculate expression for markers and samples.
@@ -109,7 +110,8 @@ class ExpressionAnalyzer:
         result_dfs = list()
 
         for fov in tqdm(self.seg.fields_of_view, desc="Calculating expression"):
-            expression_result_path = os.path.join(self.base_path, f"marker_expression_{segment}_results/{fov}.pkl")
+            os.makedirs(os.path.join(self.segmentation_results_dir, f"marker_expression_{segment}_results/"), exist_ok=True)
+            expression_result_path = os.path.join(self.segmentation_results_dir, f"marker_expression_{segment}_results/{fov}.pkl")
             segmentation_result_path = os.path.join(self.segmentation_results_dir, f"{fov}_{segment}.pickle")
             
             self.seg.field_of_view = fov
@@ -145,10 +147,9 @@ class ExpressionAnalyzer:
             else:
                 df = pd.read_pickle(expression_result_path)
 
-            df["Field of View"] = fov.split(".")[0]
-            df["Sample"] = fov.split(" ")[0]
-            df["Group"] = "Case" if "ALS" in fov else "Control"
-            temp = df.index
+            df["Field of View"] = fov
+            df["Sample"] = "_".join(fov.split("_")[0:2])
+            df["Group"] = fov.split("_")[0]
             df["Index"] = df.index
             df = df.set_index(["Field of View", "Index"])
             result_dfs.append(df)
@@ -159,8 +160,8 @@ class ExpressionAnalyzer:
         Binarize and normalize expression data.
 
         """
-        control_mean = self.expression_data[self.expression_data["Group"] == "Control"].iloc[:, :-2].mean(axis=0)
-        control_std = self.expression_data[self.expression_data["Group"] == "Control"].iloc[:, :-2].std(axis=0)
+        control_mean = self.expression_data[self.expression_data["Group"] == "Healthy"].iloc[:, :-2].mean(axis=0)
+        control_std = self.expression_data[self.expression_data["Group"] == "Healthy"].iloc[:, :-2].std(axis=0)
         normalized = (self.expression_data.iloc[:, :-2] - control_mean) / control_std
         self.expression_data.iloc[:, :-2] = normalized > 0
 
@@ -174,7 +175,7 @@ class ExpressionAnalyzer:
         Returns:
             pd.DataFrame: DataFrame containing cell counts.
 
-        """
+        
         plot_df = pd.DataFrame(columns=['Counts', "Sample", "Group"])
         condition_df = self.expression_data
         for p in profile:
@@ -189,6 +190,8 @@ class ExpressionAnalyzer:
             group = "Case" if "ALS" in sample else "Control"
             plot_df.loc[i] = [condition_cells / total_cells * 100, sample, group]
         return plot_df
+        """
+        pass
 
     def plot_condition_df(self, plot_df, title, segment):
         """

@@ -26,7 +26,7 @@ All functions below are commented if their name is not self-explanatory.
 
 
 class MELC_Segmentation:
-    def __init__(self, data_path, membrane_markers=["cd45"]) -> None:
+    def __init__(self, data_path, membrane_markers) -> None:
         """
         Initialize the MELC_Segmentation class.
 
@@ -35,9 +35,10 @@ class MELC_Segmentation:
             membrane_markers (list or str): A list of membrane marker names or a single membrane marker name.
 
         """
-        
-        if not isinstance(membrane_markers, list):
-            membrane_markers = [membrane_markers]
+        if membrane_markers is not None:
+            if not isinstance(membrane_markers, list):
+                membrane_markers = [membrane_markers]
+                
         self.fields_of_view = [f for f in sorted(os.listdir(data_path)) if not ("ipynb" in f or ".txt" in f)]
         
         self._field_of_view = None
@@ -80,6 +81,7 @@ class MELC_Segmentation:
         
         # for blood cells there should be a membrane marker:
         if self._membrane_markers is not None:
+            print("BLOOD CELLS")
             combined_membrane_labels = None
             
             # iteratively collect segments if there are more than one markers
@@ -95,10 +97,12 @@ class MELC_Segmentation:
             reconstructed_membranes, nuclei_centers_without_membranes, radii_ratio, nucleus_radii_to_circle = self.existing_membranes_as_nuclei_NN(combined_membrane_labels, nuclei_labels, nuclei_centers)
         
         else: 
+            print("TISSUE CELLS")
             if radii_ratio is None:
                 print("For tissue images, the desired radius needs to be specified as a hyperparameter.")
                 return
             nuclei_centers_without_membranes = {i: point for i, point in enumerate(nuclei_centers)}
+            nucleus_radii_to_circle = None
         
         # estimate missing membranes as circles and ensure they belong to nearest neighbor
         start = time.time()
@@ -135,20 +139,13 @@ class MELC_Segmentation:
     
     def get_prop_iodide(self):
         fov_dir = self.get_fov_dir()
-        if "ctcl" in self._data_path:
-            prop_iodide_path = self._get_channel_path(fov_dir, "propidium")
-        else:
-            bleach_dir = self._get_bleach_dir(fov_dir)
-            prop_iodide_path = self._get_channel_path(bleach_dir, "propidium")
-        
+        bleach_dir = self._get_bleach_dir(fov_dir)
+        prop_iodide_path = self._get_channel_path(bleach_dir, "propidium")
         return cv2.imread(prop_iodide_path, cv2.IMREAD_GRAYSCALE)
     
-
+    
     def get_fov_dir(self):
-        if "ctcl" in self._data_path:
-            fov_dir = os.path.join(self._data_path, self._field_of_view, "source")
-        else:
-            fov_dir = os.path.join(self._data_path, self._field_of_view)
+        fov_dir = os.path.join(self._data_path, self._field_of_view)
         assert os.path.isdir(fov_dir), f"Field of view {self._field_of_view} does not exist!"
         return fov_dir
     
@@ -160,10 +157,8 @@ class MELC_Segmentation:
     
     
     def _get_channel_path(self, img_dir, channel):
-        channels = [c for c in os.listdir(img_dir) if channel.lower() in c.lower() and c.startswith("o") and c.endswith("png")]
-        print(img_dir)
-        print(channels)
-        assert len(channels) == 1, f"Path for field of view {img_dir} does not contain exactly one image of the desired channel!"
+        channels = [c for c in os.listdir(img_dir) if channel.lower() in c.lower()]
+        assert len(channels) == 1, f"Path for field of view {img_dir} does not contain exactly one image of the desired channel {channel}!"
         channel_path = os.path.join(img_dir, channels[0])
         return channel_path
    
@@ -340,8 +335,13 @@ class MELC_Segmentation:
             numpy.ndarray: Membrane labels estimated from nuclei.
 
         """
+
+
         if self.field_of_view not in self._kdforest:
+            
             nuclei_centers = list(nuclei_centers_without_membrane.values())
+            if len(nuclei_centers) == 0:
+                print(self.field_of_view, "could not be segmented")
             self._kdforest[self.field_of_view] = KDTree(nuclei_centers, leafsize=100)
         kdtree = self._kdforest[self.field_of_view]
         
@@ -354,9 +354,16 @@ class MELC_Segmentation:
             # get nucleus label
             nucleus_label = nuclei_labels[int(point[0]), int(point[1])]       
 
-            if idx in nucleus_radii_to_circle:
-                # if radius has already been calculated, use that value
-                nucleus_radius = nucleus_radii_to_circle[idx]
+            if nucleus_radii_to_circle is not None:
+                if idx in nucleus_radii_to_circle:
+                        # if radius has already been calculated, use that value
+                        nucleus_radius = nucleus_radii_to_circle[idx]
+                else:
+                    # else calculate radius
+                    nucleus = np.where(nuclei_labels == nucleus_label)
+                    self.new_where_nucleus(nucleus, nucleus_label)
+                    nucleus_radius = self.radius_from_max_dist_within_segment(nucleus)
+                
             else:
                 # else calculate radius
                 nucleus = np.where(nuclei_labels == nucleus_label)
