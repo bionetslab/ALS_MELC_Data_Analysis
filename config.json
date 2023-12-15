@@ -1,5 +1,5 @@
 {
-    "CTCL": "/data/bionets/datasets/melc/ctcl/processed",
-    "segmentation_results": "/data/bionets/datasets/melc/ctcl/segmented",
+    "CTCL": "/data_nfs/datasets/melc/ctcl/processed",
+    "segmentation_results": "/data_nfs/datasets/melc/ctcl/segmented",
     "segmentation": "/data_slow/je30bery/spatial_proteomics/segmentation"
 }

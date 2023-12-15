@@ -14,7 +14,7 @@ import numpy as np
 from scipy.spatial import KDTree
 from csbdeep.utils import Path, normalize
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 """
 anna.moeller@fau.de
@@ -97,7 +97,6 @@ class MELC_Segmentation:
             reconstructed_membranes, nuclei_centers_without_membranes, radii_ratio, nucleus_radii_to_circle = self.existing_membranes_as_nuclei_NN(combined_membrane_labels, nuclei_labels, nuclei_centers)
         
         else: 
-            print("TISSUE CELLS")
             if radii_ratio is None:
                 print("For tissue images, the desired radius needs to be specified as a hyperparameter.")
                 return

@@ -10,10 +10,10 @@ import anndata as ad
 from tqdm import tqdm
 import pickle
 import sys
-sys.path.append("/data/bionets/je30bery/ALS_MELC_Data_Analysis/segmentation/")
-sys.path.append("/data/bionets/je30bery/ALS_MELC_Data_Analysis/marker_expression/")
-from segmentation import MELC_Segmentation
-from initial_analysis import ExpressionAnalyzer
+#sys.path.append("/data/bionets/je30bery/ALS_MELC_Data_Analysis/segmentation/")
+#sys.path.append("/data/bionets/je30bery/ALS_MELC_Data_Analysis/marker_expression/")
+from segmentation.melc_segmentation import MELC_Segmentation
+from marker_expression.initial_analysis import ExpressionAnalyzer
 import anndata as ad
 import warnings
 warnings.filterwarnings("ignore")
@@ -21,7 +21,7 @@ warnings.filterwarnings("ignore")
 
 data = "CTCL"
 
-f = open("/data/bionets/je30bery/ALS_MELC_Data_Analysis/config.json")
+f = open("/data_nfs/je30bery/ALS_MELC_Data_Analysis/config.json")
 config = json.load(f)
 data_path = config[data]
 seg_results_path = config["segmentation_results"]

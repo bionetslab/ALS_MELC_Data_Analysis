@@ -7,14 +7,16 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib
 import sys
-sys.path.append("/data_slow/je30bery/spatial_proteomics/segmentation")
-from segmentation import MELC_Segmentation
+
+sys.path.append("/data_nfs/je30bery/ALS_MELC_Data_Analysis/segmentation/")
+sys.path.append("/data/bionets/je30bery/ALS_MELC_Data_Analysis/segmentation/")
+from melc_segmentation import MELC_Segmentation
 from tqdm import tqdm
 
 
 
 class ExpressionAnalyzer:
-    def __init__(self, data_path, segmentation_results_dir_path, radii_ratio=2, membrane_markers=None, save_plots=False):
+    def __init__(self, data_path, segmentation_results_dir_path, radii_ratio=2, membrane_markers=None, save_plots=False, markers_of_interest=None):
         """
         Initialize the ExpressionAnalyzer class.
 
@@ -32,6 +34,7 @@ class ExpressionAnalyzer:
         self.segmentation_results_dir = segmentation_results_dir_path
         self.save_plots = save_plots
         self.markers = dict()
+        self.markers_of_interest = markers_of_interest
 
                  
 
@@ -62,17 +65,24 @@ class ExpressionAnalyzer:
         for fov in tqdm(self.seg.fields_of_view, desc="Segmenting"):
             nuclei_path = os.path.join(self.segmentation_results_dir, f"{fov}_nuclei.npy")
             if not os.path.exists(nuclei_path):
-                self.seg.field_of_view = fov
-                nuc, mem, _, _ = self.seg.run(fov, self.radii_ratio)
-                np.save(nuclei_path, nuc.astype(int))
-                np.save(os.path.join(self.segmentation_results_dir, f"{fov}_cells.npy"), mem.astype(int))
-
+                try:
+                    self.seg.field_of_view = fov
+                    nuc, mem, _, _ = self.seg.run(fov, self.radii_ratio)
+                    np.save(nuclei_path, nuc.astype(int))
+                    np.save(os.path.join(self.segmentation_results_dir, f"{fov}_cells.npy"), mem.astype(int))
+                except Exception as e:
+                    print(e)
+                    continue
+                
+                
             nuclei_pickle_path = os.path.join(self.segmentation_results_dir, f"{fov}_nuclei.pickle")
             if not os.path.exists(nuclei_pickle_path):
                 with open(nuclei_pickle_path, 'wb') as handle:
-                    pickle.dump(self.seg.nucleus_label_where[fov], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    pass
+                    #pickle.dump(self.seg.nucleus_label_where[fov], handle, protocol=pickle.HIGHEST_PROTOCOL)
                 with open(os.path.join(self.segmentation_results_dir, f"{fov}_cell.pickle"), 'wb') as handle:
-                    pickle.dump(self.seg.membrane_label_where[fov], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    pass
+                    #pickle.dump(self.seg.membrane_label_where[fov], handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     
     def get_expression_per_marker_and_sample(self, adaptive, where_dict):
@@ -121,19 +131,31 @@ class ExpressionAnalyzer:
                 for m in sorted(os.listdir(self.seg.get_fov_dir()))
                 if m.endswith(".tif") and "phase" not in m
             }
+            keys = list(markers.keys()).copy()
+            if self.markers_of_interest:
+                for m in keys:
+                    col = "-".join(m.split("-")[:-1])
+                    if col not in self.markers_of_interest:
+                        del markers[m]
+    
+                    
             self.markers[fov] = markers
-            del markers['Propidium iodide']                                        
-            
-            if not os.path.exists(expression_result_path):
-                with open(segmentation_result_path, 'rb') as handle:
-                    where_dict = pickle.load(handle)
+            # del markers['Propidium iodide']          
 
-                
+            cols = ["-".join(m.split("-")[:-1]) for m in list(markers.keys())]
+
+            if not os.path.exists(expression_result_path):
+                try:
+                    with open(segmentation_result_path, 'rb') as handle:
+                        where_dict = pickle.load(handle)
+                except:
+                    print(fov, "did not have segmentation file")
+                    continue
+
                 rows = list(where_dict.keys())
-                cols = list(markers.keys())
 
                 df = pd.DataFrame(index=rows, columns=markers)
-                for m in markers:
+                for m in markers:                    
                     m_img = cv2.imread(markers[m], cv2.IMREAD_GRAYSCALE)
                     tile_std = np.std(m_img)
                     adaptive = cv2.adaptiveThreshold(m_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 201, -tile_std)
@@ -146,7 +168,19 @@ class ExpressionAnalyzer:
 
             else:
                 df = pd.read_pickle(expression_result_path)
+            
+            df.columns = cols
+            
+            v, c = np.unique(cols, return_counts=True)
+            if len(v) != len(markers):
+                for m in v[np.where(c > 1)]:
+                    max = df[m].max(axis=1).copy()
+                    del df[m]
+                    df[m] = max
 
+
+            assert len(df.columns) == len(v)
+            
             df["Field of View"] = fov
             df["Sample"] = "_".join(fov.split("_")[0:2])
             df["Group"] = fov.split("_")[0]
